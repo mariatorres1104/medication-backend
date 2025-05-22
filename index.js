@@ -3,7 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-const app = express(); // ✅ ¡Esta línea debe ir al inicio!
+const app = express();
 app.use(express.json());
 app.use(cors());
 
@@ -27,18 +27,18 @@ const medicationRequestSchema = new mongoose.Schema({
   requester: Object,
   dosageInstruction: Array,
   delivered: { type: Boolean, default: false },
-  deliveryDate: Date
+  deliveryDate: Date,
 });
 
 const MedicationRequest = mongoose.model("MedicationRequest", medicationRequestSchema);
 
-// Esquema para historial de entregas
+// Esquema de historial clínico
 const entregadoSchema = new mongoose.Schema({
   patientId: String,
   medication: String,
   deliveredAt: { type: Date, default: Date.now },
   entregadoPor: String,
-  referenciaReceta: String
+  referenciaReceta: String,
 }, { versionKey: false });
 
 const HistorialEntrega = mongoose.model("HistorialEntrega", entregadoSchema);
@@ -83,10 +83,11 @@ app.post("/api/medicationrequest", async (req, res) => {
   }
 });
 
-// Marcar como entregada y guardar en historial clínico (farmacéutico)
+// Confirmar entrega y registrar en historial clínico (farmacéutico)
 app.put("/api/medicationrequest/:id/deliver", async (req, res) => {
   try {
-    console.log("🔄 Iniciando entrega de receta:", req.params.id);
+    console.log("🔄 Entrega iniciada para receta:", req.params.id);
+    console.log("📦 Datos recibidos para entrega:", req.body);
 
     const med = await MedicationRequest.findById(req.params.id);
     if (!med) {
@@ -109,10 +110,10 @@ app.put("/api/medicationrequest/:id/deliver", async (req, res) => {
     await historial.save();
     console.log("📝 Historial clínico guardado correctamente:", historial);
 
-    res.json({ mensaje: "Entrega confirmada y registrada en historia clínica", data: med });
+    res.json({ mensaje: "Entrega confirmada y registrada", data: med });
   } catch (error) {
     console.error("❌ Error inesperado:", error);
-    res.status(500).json({ error: "Error al actualizar la entrega y registrar historial" });
+    res.status(500).json({ error: "Error al actualizar la entrega y guardar historial" });
   }
 });
 
