@@ -14,8 +14,8 @@ mongoose.connect(process.env.MONGO_URI, {
 });
 
 const db = mongoose.connection;
-db.on("error", console.error.bind(console, " Error de conexión a MongoDB:"));
-db.once("open", () => console.log(" Conectado a MongoDB"));
+db.on("error", console.error.bind(console, "Error de conexión a MongoDB:"));
+db.once("open", () => console.log("Conectado a MongoDB"));
 
 // Esquema de prescripción
 const medicationRequestSchema = new mongoose.Schema({
@@ -32,14 +32,14 @@ const medicationRequestSchema = new mongoose.Schema({
 
 const MedicationRequest = mongoose.model("MedicationRequest", medicationRequestSchema);
 
-// NUEVO esquema para historial de entregas (funcionalidad 5)
+// Esquema de historial clínico
 const entregadoSchema = new mongoose.Schema({
   patientId: String,
   medication: String,
   deliveredAt: { type: Date, default: Date.now },
   entregadoPor: String,
   referenciaReceta: String
-});
+}, { versionKey: false }); // Oculta __v automáticamente
 
 const HistorialEntrega = mongoose.model("HistorialEntrega", entregadoSchema);
 
@@ -94,18 +94,20 @@ app.put("/api/medicationrequest/:id/deliver", async (req, res) => {
     med.deliveryDate = new Date();
     await med.save();
 
-    // Guardar en historial clínico
+    // Registrar en historial clínico
     const historial = new HistorialEntrega({
       patientId: med.subject.reference,
       medication: med.medicationCodeableConcept.text,
       entregadoPor: req.body.entregadoPor || "farmaceutico-desconocido",
       referenciaReceta: med._id.toString()
     });
-    await historial.save();
+
+    await historial.save(); // Guardar en la base de datos
+    console.log("Historial clínico guardado:", historial); // Para ver en Render
 
     res.json({ mensaje: "Entrega confirmada y registrada en historia clínica", data: med });
   } catch (error) {
-    console.error(error);
+    console.error("Error al registrar historial:", error);
     res.status(500).json({ error: "Error al actualizar la entrega y registrar historial" });
   }
 });
@@ -115,3 +117,4 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
+
