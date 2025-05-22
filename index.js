@@ -100,10 +100,15 @@ app.put("/api/medicationrequest/:id/deliver", async (req, res) => {
     await med.save();
     console.log("✅ Receta marcada como entregada");
 
+    // Validar campos antes de guardar en historial
+    const paciente = med.subject?.reference || "Paciente desconocido";
+    const medicamento = med.medicationCodeableConcept?.text || "Medicamento no especificado";
+    const farmaceutico = req.body.entregadoPor || "farmaceutico-desconocido";
+
     const historial = new HistorialEntrega({
-      patientId: med.subject.reference,
-      medication: med.medicationCodeableConcept.text,
-      entregadoPor: req.body.entregadoPor || "farmaceutico-desconocido",
+      patientId: paciente,
+      medication: medicamento,
+      entregadoPor: farmaceutico,
       referenciaReceta: med._id.toString()
     });
 
