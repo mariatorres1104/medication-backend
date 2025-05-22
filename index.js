@@ -26,11 +26,22 @@ const medicationRequestSchema = new mongoose.Schema({
   authoredOn: Date,
   requester: Object,
   dosageInstruction: Array,
-  delivered: { type: Boolean, default: false },  // Nuevo campo para el farmacéutico
-  deliveryDate: Date                             // Fecha de entrega
+  delivered: { type: Boolean, default: false },
+  deliveryDate: Date
 });
 
 const MedicationRequest = mongoose.model("MedicationRequest", medicationRequestSchema);
+
+// NUEVO esquema para historial de entregas (funcionalidad 5)
+const entregadoSchema = new mongoose.Schema({
+  patientId: String,
+  medication: String,
+  deliveredAt: { type: Date, default: Date.now },
+  entregadoPor: String,
+  referenciaReceta: String
+});
+
+const HistorialEntrega = mongoose.model("HistorialEntrega", entregadoSchema);
 
 // Ruta principal
 app.get("/", (req, res) => {
@@ -72,24 +83,35 @@ app.post("/api/medicationrequest", async (req, res) => {
   }
 });
 
-// Marcar como entregada (farmacéutico)
+// Marcar como entregada y registrar en historia clínica (farmacéutico)
 app.put("/api/medicationrequest/:id/deliver", async (req, res) => {
   try {
     const med = await MedicationRequest.findById(req.params.id);
     if (!med) return res.status(404).json({ error: "Prescripción no encontrada" });
 
+    // Marcar como entregado
     med.delivered = true;
     med.deliveryDate = new Date();
     await med.save();
 
-    res.json({ mensaje: "Medicamento marcado como entregado", data: med });
+    // Guardar en historial clínico
+    const historial = new HistorialEntrega({
+      patientId: med.subject.reference,
+      medication: med.medicationCodeableConcept.text,
+      entregadoPor: req.body.entregadoPor || "farmaceutico-desconocido",
+      referenciaReceta: med._id.toString()
+    });
+    await historial.save();
+
+    res.json({ mensaje: "Entrega confirmada y registrada en historia clínica", data: med });
   } catch (error) {
-    res.status(500).json({ error: "Error al actualizar la entrega" });
+    console.error(error);
+    res.status(500).json({ error: "Error al actualizar la entrega y registrar historial" });
   }
 });
 
 // Iniciar servidor
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(` Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
